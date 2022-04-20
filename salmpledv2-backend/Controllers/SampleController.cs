@@ -40,6 +40,12 @@ public class SampleController : ControllerBase
         
     }
 
+    [HttpPost("RemoveSelected")]
+    [Authorize]
+    public async Task<IActionResult> RemoveSelected([FromBody] GenericListDTO list) {
+        return Ok(await _SampleService.RemoveSelected(list));
+    }
+
     
   
 

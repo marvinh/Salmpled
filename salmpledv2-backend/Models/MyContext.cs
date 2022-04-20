@@ -13,6 +13,7 @@ namespace salmpledv2_backend.Models
         public MyContext(DbContextOptions<MyContext> options, IHttpContextAccessor accessor)
             : base(options)
         {
+            
            var claimsPrincipal = accessor.HttpContext?.User;
 
         // Get the username claim from the claims principal - if the user is not authenticated the claim will be null
@@ -20,12 +21,14 @@ namespace salmpledv2_backend.Models
            
         }
 
+        
+
         public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
         {
              var entities = ChangeTracker.Entries().Where(x => x.Entity is BaseEntity && (x.State == EntityState.Added || x.State == EntityState.Modified || x.State == EntityState.Deleted));
 
             
-
+           
             foreach (var entity in entities)
             {
                 if (entity.State == EntityState.Added)

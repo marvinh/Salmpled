@@ -10,5 +10,7 @@ namespace salmpledv2_backend.Services {
         Task<ServiceResponse<List<GetSampleDTO>>> RenameSamples(RenameSampleListDTO list);
 
         Task<ServiceResponse<List<GetSampleDTO>>> AddTags(AddTagListDTO list);
+
+        Task<ServiceResponse<List<GetSampleDTO>>> RemoveSelected(GenericListDTO list);
     }
 }

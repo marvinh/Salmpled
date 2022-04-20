@@ -439,6 +439,26 @@ export const EditPack = (props) => {
     }
 
 
+    const removeSelected = async () => {
+        console.log(state.selected)
+        const token = await getAccessTokenSilently();
+        const ids = state.selected.map(ele => ele.id)
+        let {data} = await authorized(token).post('/Sample/RemoveSelected', {
+            ids,
+        })
+
+        let {result, err} = data;
+        if(err) {
+            alert(err)
+        }else{
+            setState(p => {
+                return Object.assign({},p,{ data: {
+                    ...p.data,
+                    samples: p.data.samples.filter((ele) => !state.selected.includes(ele.id))
+                }})
+            })
+        }
+    }
     const handleDownload = async(uKey, name) => {
         let { data } = await nodeUnauthorized().post('/GetUncompressed', {
             uKey,
@@ -552,14 +572,18 @@ export const EditPack = (props) => {
                     }
                     <div className='m-2 p-5 bg-light'>
 
-                        <Button onClick={() => setModal(p => Object.assign({}, p, { rename: true }))} className='m-2 p-2' variant='dark'>
+                        <Button disabled={state.selected.length < 1} onClick={() => setModal(p => Object.assign({}, p, { rename: true }))} className='m-2 p-2' variant='dark'>
                             Rename Selected
                         </Button>
-                        <Button onClick={() => setModal(p => Object.assign({}, p, { tag: true }))} className='m-2 p-2' variant='dark'>
+                        <Button disabled={state.selected.length < 1}  onClick={() => setModal(p => Object.assign({}, p, { tag: true }))} className='m-2 p-2' variant='dark'>
                             Tag Selected
                         </Button>
                         <Button onClick={() => handleDownloadZip()} disabled={state.selected.length < 1} className='m-2 p-2' variant='dark'>
                             Download Selected
+                        </Button>
+
+                        <Button onClick={() => removeSelected()} disabled={state.selected.length < 1} className='m-2 p-2' variant='dark'>
+                            Remove Selected
                         </Button>
                     </div>
                     {

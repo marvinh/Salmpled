@@ -7,5 +7,7 @@ namespace salmpledv2_backend.Models {
         public Guid GroupId {get;set;}
 
         public Group Group {get;set;}
+
+        
     }
 }

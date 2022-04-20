@@ -1,0 +1,33 @@
+config:
+  target: "http://localhost:3010"
+  phases:
+    - duration: 60
+      arrivalRate: 20
+      name: "Warming up"
+    - duration: 240
+      arrivalRate: 20
+      rampTo: 100
+      name: "Ramping up"
+    - duration: 500
+      arrivalRate: 100
+      name: "Sustained load"
+  processor: "./processor.js"
+ 
+scenarios:
+  - name: "Sign up flow"
+    flow:
+      - get:
+          url: "/"
+      - think: 1
+      - get:
+          url: "/pricing"
+      - think: 2
+      - get:
+          url: "/signup"
+      - think: 3
+      - post:
+          url: "/signup"
+          beforeRequest: generateSignupData
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"

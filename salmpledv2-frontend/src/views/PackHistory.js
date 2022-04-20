@@ -95,10 +95,13 @@ export const PackHistory = (props) => {
                 return Object.assign({}, p, {data: result})
             })
             console.log(result)
+            console.log(diff(result.compare,result.current))
+            console.log(diff(result.current,result.compare))
 
         }
         fetchData()
         console.log(on)
+       
        
     }, [on])
 

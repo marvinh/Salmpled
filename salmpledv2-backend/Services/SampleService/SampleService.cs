@@ -23,6 +23,43 @@ namespace salmpledv2_backend.Services
             _mapper = mapper;
         }
 
+
+        public async Task<ServiceResponse<List<GetSampleDTO>>> RemoveSelected(GenericListDTO list)
+        {
+            ServiceResponse<List<GetSampleDTO>> res = new ServiceResponse<List<GetSampleDTO>>();
+
+            try
+            {
+
+                var s = await _context.Samples.Where(s => list.Ids.Contains(s.Id)).ToListAsync();
+                foreach (var samp in s)
+                {
+                    var claimsPrincipal = _httpContextAccessor.HttpContext?.User;
+
+                    // Get the username claim from the claims principal - if the user is not authenticated the claim will be null
+                    var _username = claimsPrincipal?.Claims?.SingleOrDefault(c => c.Type == "https://myapp.example.com/username")?.Value ?? "Anon";
+
+                    samp.DeletedBy = _username;
+                    samp.DeletedDate = DateTime.UtcNow;
+
+                }
+                await _context.SaveChangesAsync();
+
+                Pack p = await _context.Packs.Where(p => p.Id == s[0].PackId).SingleAsync();
+                p.UpdatedDate = DateTime.UtcNow;
+                _context.Samples.RemoveRange(s);
+                await _context.SaveChangesAsync();
+                res.Result = _mapper.Map<List<GetSampleDTO>>(s);
+
+            }
+            catch (Exception ex)
+            {
+                res.Err = ex.Message;
+            }
+
+            return res;
+
+        }
         public async Task<ServiceResponse<GetSampleDTO>> AddSample(AddSampleDTO sample)
         {
 
@@ -98,28 +135,28 @@ namespace salmpledv2_backend.Services
 
                         var un = sample.Id;
                         var apnd = un.ToString().Substring(0, 8);
-                        s = await _context.Samples.Where(es=> es.Id == sample.Id).FirstOrDefaultAsync();
+                        s = await _context.Samples.Where(es => es.Id == sample.Id).FirstOrDefaultAsync();
                         s.Name = $"{apnd}_{sample.Name}";
                         await _context.SaveChangesAsync();
                         updateList.Add(s);
                     }
                     else
                     {
-                       
+
                         s = await _context.Samples.Where(es => es.Id == sample.Id).FirstOrDefaultAsync();
                         s.Name = sample.Name;
                         await _context.SaveChangesAsync();
                         updateList.Add(s);
                     }
-                    
+
                 }
-                
+
                 Pack p = await _context.Packs.Where(p => p.Id == list.list[0].PackId).FirstOrDefaultAsync();
                 p.UpdatedDate = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();
 
-                res.Result =  _mapper.Map<List<GetSampleDTO>>(updateList);
+                res.Result = _mapper.Map<List<GetSampleDTO>>(updateList);
             }
             catch (Exception e)
             {
@@ -129,28 +166,35 @@ namespace salmpledv2_backend.Services
 
         }
 
-        public async Task<ServiceResponse<List<GetSampleDTO>>> AddTags(AddTagListDTO list) {
+        public async Task<ServiceResponse<List<GetSampleDTO>>> AddTags(AddTagListDTO list)
+        {
             ServiceResponse<List<GetSampleDTO>> res = new ServiceResponse<List<GetSampleDTO>>();
-            try{
+            try
+            {
                 List<Sample> arr = await _context.Samples.Where(s => list.SampleIds.Contains(s.Id)).ToListAsync();
-                
+
                 List<Guid> tagIdList = new List<Guid>();
 
                 List<Tag> newTags = new List<Tag>();
 
-                list.Tags.ForEach(tag => {
-                    if(tag.Id == null) {
+                list.Tags.ForEach(tag =>
+                {
+                    if (tag.Id == null)
+                    {
                         Guid newId = Guid.NewGuid();
-                        newTags.Add(new Tag {
+                        newTags.Add(new Tag
+                        {
                             Id = newId,
                             Name = tag.Name
-                            });
-                        
+                        });
+
                         tagIdList.Add(newId);
-                    }else{
+                    }
+                    else
+                    {
                         tagIdList.Add(tag.Id.GetValueOrDefault());
                     }
-                    
+
                 });
 
                 await _context.AddRangeAsync(newTags);
@@ -160,27 +204,32 @@ namespace salmpledv2_backend.Services
 
                 List<SampleTag> sampleTags = new List<SampleTag>();
 
-                foreach(var a in arr)
-                { 
-                    foreach(var b in arr2){
+                foreach (var a in arr)
+                {
+                    foreach (var b in arr2)
+                    {
                         var exists = _context.SampleTags.Where(st => st.TagId == b.Id && st.SampleId == a.Id).Count() > 0;
-                        if(!exists) {
-                        sampleTags.Add( new SampleTag {
-                            TagId = b.Id,
-                            SampleId = a.Id,
-                        });
+                        if (!exists)
+                        {
+                            sampleTags.Add(new SampleTag
+                            {
+                                TagId = b.Id,
+                                SampleId = a.Id,
+                            });
                         }
                     }
                 }
-                
+
                 await _context.SampleTags.AddRangeAsync(sampleTags);
-                
+
                 Pack p = await _context.Packs.Where(p => p.Id == arr[0].PackId).FirstOrDefaultAsync();
                 p.UpdatedDate = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
-                res.Result =  _mapper.Map<List<GetSampleDTO>>(arr);
+                res.Result = _mapper.Map<List<GetSampleDTO>>(arr);
 
-            }catch(Exception e) {
+            }
+            catch (Exception e)
+            {
                 res.Err = e.Message;
             }
             return res;
