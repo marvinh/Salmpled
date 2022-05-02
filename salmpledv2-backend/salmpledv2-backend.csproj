@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>salmpledv2_backend</RootNamespace>
+    <NoWarn>0169;8019</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

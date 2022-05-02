@@ -1,15 +1,15 @@
 import axios from 'axios'
 
 const instance = axios.create({
-    baseURL: 'https://localhost:7122/api',
+    baseURL: process.env.REACT_APP_NET_API,
 })
 
 const instance2 = axios.create({
-    baseURL: 'http://localhost:3010/api'
+    baseURL: process.env.REACT_APP_NODE_API
 })
 
 const instance3 = axios.create({
-    baseURL: 'http://localhost:3010/api'
+    baseURL: process.env.REACT_APP_NODE_API
 })
 
 

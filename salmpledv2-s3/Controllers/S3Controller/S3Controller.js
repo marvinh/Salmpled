@@ -1,5 +1,5 @@
 
-const {createPostObjectUrl, transcodeToMP3, getUrl, getUncompressed, totalSize, getZipFile, testGetZip} = require('./S3Handler/S3Handler')
+const {createPostObjectUrl, transcodeToMP3, getUrl, getUncompressed, totalSize, getZipFile, testGetZip, sqsProcessMP3} = require('./S3Handler/S3Handler')
 
 const S3Controller = {
     CreatePostObjectUrl: (clientData, callback) => {
@@ -52,6 +52,15 @@ const S3Controller = {
     },
     TestGetZip: (res)=> {
         testGetZip(res)
+    },
+    SQSProcessMP3: (clientData, callback) => {
+        sqsProcessMP3(clientData).then(result => {
+            callback({result})
+        })
+        .catch(error => {
+            let err = error.message || error
+            callback({err})
+        })
     }
 }
 

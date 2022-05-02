@@ -30,6 +30,8 @@ var config = {
   bucket: 'salmpledv2',
 }
 
+const sqs = new AWS.SQS({apiVersion: '2012-11-05'});
+
 
 
 const uploadStream = ({ Bucket, Key }) => {
@@ -179,14 +181,26 @@ const S3Handler = {
 
     //this is the streaming magic
     archive.pipe(res);
-
+    var dict = {}
     uKeyAndName.forEach((ele, index) => {
+      var fname = ele.name;
+      if(fname in dict) {
+        console.log("defined");
+        dict[fname] = dict[fname] + 1
+      }else{
+        console.log("undefined");
+        dict[fname] = 0;
+      }
+      console.log(dict)
+
       let readStream = s3.getObject({
         Bucket: config.bucket,
         Key: ele.uKey,
       }).createReadStream()
       readStream.on('error', (err) => reject(err))
-      archive.append(readStream, { name: ele.name + path.extname(ele.uKey) });
+      var app = dict[fname] > 0 ? ' '+dict[fname] : '';
+      console.log(ele.name + app + path.extname(ele.uKey));
+      archive.append(readStream, { name: ele.name + app + path.extname(ele.uKey) });
     })
 
     archive.finalize();
@@ -194,6 +208,21 @@ const S3Handler = {
     const used = process.memoryUsage().heapUsed / 1024 / 1024;
     console.log(`GetZipUsed,${Math.round(used * 100) / 100} MB`);
 
+
+  },
+  sqsProcessMP3: async (clientData) => {
+    const { mp3Keys } = clientData
+    console.log(mp3Keys)
+
+    const params = {
+      MessageBody: JSON.stringify({
+        mp3Keys: mp3Keys
+      }),
+      QueueUrl: process.env.TEMPO_EXTRACT_QUEUE
+    };
+
+
+    return await sqs.sendMessage(params).promise()
 
   },
   testGetZip: (res) => {

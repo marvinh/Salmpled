@@ -94,9 +94,7 @@ export const PackHistory = (props) => {
             setState(p => {
                 return Object.assign({}, p, {data: result})
             })
-            console.log(result)
-            console.log(diff(result.compare,result.current))
-            console.log(diff(result.current,result.compare))
+
 
         }
         fetchData()
@@ -105,10 +103,103 @@ export const PackHistory = (props) => {
        
     }, [on])
 
+    const lhs = {
+        foo: {
+          bar: {
+            a: ['a', 'b'],
+            b: 2,
+            c: ['x', 'y'],
+            e: 100 // deleted
+          }
+        },
+        buzz: 'world'
+      };
+      
+      const rhs = {
+        foo: {
+          bar: {
+            a: ['a'], // index 1 ('b')  deleted
+            b: 2, // unchanged
+            c: ['x', 'y', 'z'], // 'z' added
+            d: 'Hello, world!' // added
+          }
+        },
+        buzz: 'fizz' // updated
+      };
 
-    
+      function replacer(key, value) {
+        if (value == undefined) {
+          return null;
+        }
+        return value;
+      }
+
+    const Difference = () => {
+        if(state.data) {
+            console.log(state.data.deleted.asOf.length);
+            console.log(state.data.deleted.prev.length)
+            var deletedAsOf = state.data.deleted.asOf.reduce((a, v) => ({ ...a, [v.id]: v}), {})
+            var deletedPrev = state.data.deleted.prev.reduce((a, v) => ({ ...a, [v.id]: v}), {})
+
+            var updatedAsOf = state.data.updated.asOf.reduce((a, v) => ({ ...a, [v.id]: v}), {})
+            var updatedPrev = state.data.updated.prev.reduce((a, v) => ({ ...a, [v.id]: v}), {})
+
+            console.log(deletedAsOf,deletedPrev);
+
+            var added = addedDiff(updatedPrev,updatedAsOf)
+            var currentUpdated = updatedDiff(updatedPrev, updatedAsOf)
+            var originalUpdated = updatedDiff(updatedAsOf, updatedPrev)
+
+            var deleted = deletedDiff(deletedAsOf,deletedPrev);
+        
+            
+            return (
+            <>
+            <p className='h4'> Added </p>
+            <code>
+            {
+                JSON.stringify(added)
+
+            }
+            </code>
+            <p className='h4'> Updated </p>
+            <p className='h6'> Current </p>
+            <code>
+            {
+                
+                JSON.stringify(currentUpdated)
+
+            }
+            </code>
+            <p className='h6'> Previous </p>
+            <code>
+            {
+                
+                JSON.stringify(originalUpdated)
+
+            }
+            </code>
+            <p className='h4'> Deleted </p>
+            <code>
+            {
+                JSON.stringify(deleted,replacer)
+
+            }
+            </code>
+            </>
+            )
+
+        }else{
+            return(
+                <>
+                </>
+            )
+        }
+                            
+    }
        
     
+
     return (
         <Container>
             <div className='m-2 bg-light'>
@@ -126,45 +217,22 @@ export const PackHistory = (props) => {
             </div>
             <div className='m-2 bg-light p-5'>
                 
-                <p className='h4'> Compare Current Pack to A Point in Time </p>
+                <p className='h4'> Version History </p>
 
                 <Form.Select aria-label="Default select example"
                 value={on}
                 onChange={(e) => setOn(p=>e.target.value)}
                 >
-                    <option>Select A Point in Time</option>
+                    
                     { 
-                        options.map((o,i) => <option key={i} value={o}> {new Date(o).toUTCString()}</option>)
+
+                        options.map((o,i) => <option key={i} value={options[i].date}> {new Date(o.date).toUTCString()} By {o.updatedBy}</option>)
                     }
                 </Form.Select>
 
-                {/* { 
-                state.data ?
-                     <ReactDiffViewer oldValue={state.data.compare} newValue={state.data.current} splitView={true} />
-                    :
-                <></>
-                } */}
+                <Difference/>
 
-                <p className='h5'> Current Data </p>
-                <code>
-                {
-                    state.data ?
-                     JSON.stringify(detailedDiff(state.data.compare, state.data.current))
-                    :
-                    <>
-                    </>
-                }
-                </code>
-                <p className='h5'> Old Data </p>
-                <code >
-                {
-                    state.data ?
-                     JSON.stringify(detailedDiff(state.data.current, state.data.compare))
-                    :
-                    <>
-                    </>
-                }
-                </code>
+               
                 
             </div>
         </Container>

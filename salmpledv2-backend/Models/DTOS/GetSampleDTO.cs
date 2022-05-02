@@ -15,6 +15,8 @@ namespace salmpledv2_backend.Models.DTOS
         public List<GetTagDTO> Tags {get;set;}
 
         public string MimeType {get;set;}
+
+        public decimal Tempo {get;set;}
         
     }
 }

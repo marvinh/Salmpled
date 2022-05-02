@@ -12,7 +12,7 @@ import history from "./utils/history";
 import CreateNewPack from "./views/CreateNewPack";
 import EditPack from "./views/EditPack";
 import Invite from "./views/Invite";
-
+import Search from "./views/Search";
 // styles
 import "./App.css";
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -49,6 +49,7 @@ const App = () => {
             <Route path="/edit/:username/:pack" exact element={<EditPack/>} />
             <Route path="/history/:username/:pack" exact element={<PackHistory/>} />
             <Route path="/invite/:username/:pack" exact element={<Invite/>} />
+            <Route path="/search" exact element={<Search/>} />
           </Routes>
         </Container>
       </div>

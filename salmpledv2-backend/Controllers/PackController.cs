@@ -68,6 +68,17 @@ public class PackController : ControllerBase
         return Ok(await _packService.CollabPacks());
     }
 
+    [HttpPost("Search")]
+    public async Task<IActionResult> Search(KeywordDTO keywordDTO) {
+        return Ok(await _packService.Search(keywordDTO));
+    }
+
+    [HttpPost("SearchResults")]
+
+    public async Task<IActionResult> SearchResults(SearchResultsDTO dto) {
+        return Ok(await _packService.SearchResults(dto));
+    }
+
 
 
     

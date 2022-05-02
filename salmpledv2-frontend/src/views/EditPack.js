@@ -61,7 +61,7 @@ function MyDropzone({ handleFileDrop }) {
     const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
 
         onDrop,
-        
+
     })
 
     const fileRejectionItems = fileRejections.map(({ file, errors }) => (
@@ -114,7 +114,7 @@ const SampleTable = ({ data, handlePreview, setSelected, handleDownload }) => {
                 Header: '',
                 accessor: 'id',
                 Cell: () => (<></>)
-            },            
+            },
             {
                 Header: 'Preview',
                 accessor: 'cKey',
@@ -122,7 +122,7 @@ const SampleTable = ({ data, handlePreview, setSelected, handleDownload }) => {
                     <Button size="sm" variant="dark" value={cell.row.values.name} onClick={
                         () => {
                             handleDownload(cell.row.values.uKey, cell.row.values.name)
-                            handlePreview(cell.row.values.cKey,cell.row.values.name)
+                            handlePreview(cell.row.values.cKey, cell.row.values.name)
                         }
                     }>
                         Preview
@@ -134,9 +134,9 @@ const SampleTable = ({ data, handlePreview, setSelected, handleDownload }) => {
                 accessor: 'uKey',
                 Cell: ({ cell }) => (
                     <Button size="sm" variant="dark" value={cell.row.values.name} onClick={
-                        () => { 
+                        () => {
                             handleDownload(cell.row.values.uKey, cell.row.values.name)
-                            handlePreview(cell.row.values.cKey,cell.row.values.name)
+                            handlePreview(cell.row.values.cKey, cell.row.values.name)
                         }
                     }>
                         Download
@@ -146,6 +146,10 @@ const SampleTable = ({ data, handlePreview, setSelected, handleDownload }) => {
             {
                 Header: 'Name',
                 accessor: 'name', // accessor is the "key" in the data
+            },
+            {
+                Header: 'Tempo',
+                accessor: 'tempo',
             },
             {
                 Header: 'Created By',
@@ -290,9 +294,9 @@ export const EditPack = (props) => {
     const [state, setState] = useState({
         loading: false,
         data: null,
-        
+
         selected: [],
-        
+
     })
 
     const [modal, setModal] = useState({
@@ -331,71 +335,75 @@ export const EditPack = (props) => {
 
     const handleFileDrop = async (acceptedFiles) => {
         console.log(acceptedFiles);
-
-        if (acceptedFiles.length < 1) return ;
+        let filelist = [];
+        if (acceptedFiles.length < 1) return;
         try {
 
             const token = await getAccessTokenSilently();
             setState(p => Object.assign({}, p, { loading: true }))
-            acceptedFiles.forEach(async (ele, index) => {
-                await nodeAuthorized(token).post(`/CreatePostObjectUrl`, {
+
+            const fileList = [];
+            for (var i = 0; i < acceptedFiles.length; i++) {
+                let create = await nodeAuthorized(token).post(`/CreatePostObjectUrl`, {
                     packOwner: username,
                     packName: state.data.name,
-                    fileName: ele.name,
-                }).then(async (res) => {
-                    console.log(res);
-                    let { data } = res;
-                    let { s3_post, err } = data;
-                    let { url, fields } = s3_post
-                    var formData = new FormData()
-
-                    for (var x in fields) {
-                        console.log(x)
-                        formData.append(x, fields[x])
-                    }
-
-                    formData.append('file', ele)
-
-                    await Axios.post(url, formData)
-                        .then((res) => console.log(res))
-                        .catch((err) => console.log(err))
-
-                    await nodeAuthorized(token).post(`/TranscodeToMP3`, {
-                        bucket: 'salmpledv2',
-                        key: fields.key,
-                    }).then(async (res) => {
-
-                        console.log("type", ele.type);
-                        let { data } = await authorized(token).post('/Sample/AddSample', {
-
-                            name: ele.name.replace(/\.[^/.]+$/, ""),
-                            ckey: res.data.s3_response.key,
-                            ukey: fields.key,
-                            region: 'us-east-1',
-                            bucket: fields.bucket,
-                            packId: state.data.id,
-                            mimeType: ele.type
-
-                        })
-
-                        let { result, err } = data
-                        setState(p => Object.assign({}, p, {
-                            data: {
-                                ...p.data,
-                                samples: [...p.data.samples, result]
-                            }
-                        }))
-                        console.log(result)
-                    }).catch((err) => console.log(err))
+                    fileName: acceptedFiles[i].name,
                 })
 
-                if (index + 1 >= acceptedFiles.length) {
-                    setState(p => Object.assign({}, p, { loading: false }))
-                }
+                let url = create.data.s3_post.url
+                let fields = create.data.s3_post.fields
 
+                var formData = new FormData();
+                for (var x in fields) {
+                    formData.append(x, fields[x])
+                }
+                formData.append('file', acceptedFiles[i]);
+
+                await Axios.post(url, formData);
+
+                let transcode = await nodeAuthorized(token).post(`/TranscodeToMP3`, {
+                    bucket: `salmpledv2`,
+                    key: fields.key,
+                })
+
+                fileList.push({
+                    name: acceptedFiles[i].name.replace(/\.[^/.]+$/, ""),
+                    ckey: transcode.data.s3_response.key,
+                    ukey: fields.key,
+                    region: 'us-east-1',
+                    bucket: fields.bucket,
+                    packId: state.data.id,
+                    mimeType: acceptedFiles[i].type
+
+                })
+            }
+
+            let { data } = await authorized(token).post('/Sample/AddBulkSamples', {
+                samples: fileList
             })
 
+            let { result, err } = data
+            console.log(result);
+            setState(p => Object.assign({}, p, {
+                data: {
+                    ...p.data,
+                    samples: [...p.data.samples, ...result]
+                }
+            }))
 
+            let res = await nodeUnauthorized().post('/SQSProcessMP3', {
+                mp3Keys: fileList.map((ele) => ele.ckey)
+            })
+
+            if(res.err) {
+                alert(res.err)
+            }else{
+                console.log(res.result)
+            }
+
+            setState(p => Object.assign({}, p, { loading: false }))
+
+            
 
         } catch (e) {
             alert(e);
@@ -424,18 +432,18 @@ export const EditPack = (props) => {
     }
 
     const handleDownloadZip = async () => {
-        const uKeyAndName = state.selected.map(ele => {return {uKey: ele.uKey, name: ele.name}})
-        setSecondary(p => Object.assign({},p,{zipLoading: true}))
+        const uKeyAndName = state.selected.map(ele => { return { uKey: ele.uKey, name: ele.name } })
+        setSecondary(p => Object.assign({}, p, { zipLoading: true }))
         await nodeNoAuthDownload().post('/GetZipFile', {
             packName: state.data.name,
             uKeyAndName
         }).then(res => {
-            const url = URL.createObjectURL(new Blob([res.data],{type:'application/zip'}));
+            const url = URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }));
             console.log(url)
-            setSecondary(p => Object.assign({},p,{zipUrl: url,zipLoading: false}))
+            setSecondary(p => Object.assign({}, p, { zipUrl: url, zipLoading: false }))
         })
 
-        
+
     }
 
 
@@ -443,23 +451,25 @@ export const EditPack = (props) => {
         console.log(state.selected)
         const token = await getAccessTokenSilently();
         const ids = state.selected.map(ele => ele.id)
-        let {data} = await authorized(token).post('/Sample/RemoveSelected', {
+        let { data } = await authorized(token).post('/Sample/RemoveSelected', {
             ids,
         })
 
-        let {result, err} = data;
-        if(err) {
+        let { result, err } = data;
+        if (err) {
             alert(err)
-        }else{
+        } else {
             setState(p => {
-                return Object.assign({},p,{ data: {
-                    ...p.data,
-                    samples: p.data.samples.filter((ele) => !state.selected.includes(ele.id))
-                }})
+                return Object.assign({}, p, {
+                    data: {
+                        ...p.data,
+                        samples: p.data.samples.filter((ele) => !ids.includes(ele.id))
+                    }
+                })
             })
         }
     }
-    const handleDownload = async(uKey, name) => {
+    const handleDownload = async (uKey, name) => {
         let { data } = await nodeUnauthorized().post('/GetUncompressed', {
             uKey,
             name
@@ -467,8 +477,8 @@ export const EditPack = (props) => {
 
         let { result, err } = data;
         console.log(data)
-        setSecondary(p => Object.assign({}, p, {downloadUrl: result, downloadUrlName: name}))
-        
+        setSecondary(p => Object.assign({}, p, { downloadUrl: result, downloadUrlName: name }))
+
     }
 
     const handleClose = () => {
@@ -528,17 +538,17 @@ export const EditPack = (props) => {
             {state.data && (
                 <>
                     <div className='m-2 bg-light'>
-                    <Nav fill variant="tabs" defaultActiveKey="current">
-                        <Nav.Item>
-                            <Nav.Link eventKey="current" onClick={() => navigate(`/edit/${username}/${pack}`)}>Edit Pack </Nav.Link>
-                        </Nav.Item>
-                        <Nav.Item>
-                            <Nav.Link eventKey="history" onClick={() => navigate(`/history/${username}/${pack}`)}>History</Nav.Link>
-                        </Nav.Item>
-                        <Nav.Item>
-                            <Nav.Link eventKey="invite" onClick={() => navigate(`/invite/${username}/${pack}`)}>Add Collaborators</Nav.Link>
-                        </Nav.Item>
-                    </Nav>
+                        <Nav fill variant="tabs" defaultActiveKey="current">
+                            <Nav.Item>
+                                <Nav.Link eventKey="current" onClick={() => navigate(`/edit/${username}/${pack}`)}>Edit Pack </Nav.Link>
+                            </Nav.Item>
+                            <Nav.Item>
+                                <Nav.Link eventKey="history" onClick={() => navigate(`/history/${username}/${pack}`)}>History</Nav.Link>
+                            </Nav.Item>
+                            <Nav.Item>
+                                <Nav.Link eventKey="invite" onClick={() => navigate(`/invite/${username}/${pack}`)}>Add Collaborators</Nav.Link>
+                            </Nav.Item>
+                        </Nav>
                     </div>
 
                     < div className='border bg-light m-2 p-5'>
@@ -557,7 +567,7 @@ export const EditPack = (props) => {
 
                         }
                         </p>
-                        <> <p> Collaborators: </p>  <ul> {state.data.collaborators.map((ele,index) => <li key={index}>{ele.username}</li>)} </ul> </>
+                        <> <p> Collaborators: </p>  <ul> {state.data.collaborators.map((ele, index) => <li key={index}>{ele.username}</li>)} </ul> </>
                     </div>
 
 
@@ -575,7 +585,7 @@ export const EditPack = (props) => {
                         <Button disabled={state.selected.length < 1} onClick={() => setModal(p => Object.assign({}, p, { rename: true }))} className='m-2 p-2' variant='dark'>
                             Rename Selected
                         </Button>
-                        <Button disabled={state.selected.length < 1}  onClick={() => setModal(p => Object.assign({}, p, { tag: true }))} className='m-2 p-2' variant='dark'>
+                        <Button disabled={state.selected.length < 1} onClick={() => setModal(p => Object.assign({}, p, { tag: true }))} className='m-2 p-2' variant='dark'>
                             Tag Selected
                         </Button>
                         <Button onClick={() => handleDownloadZip()} disabled={state.selected.length < 1} className='m-2 p-2' variant='dark'>
@@ -590,20 +600,20 @@ export const EditPack = (props) => {
                         !!secondary.zipUrl && (
                             <Alert variant="light" className="m-2 p-4" dismissible show={!!secondary.zipUrl} onClose={() => {
                                 URL.revokeObjectURL(secondary.zipUrl);
-                                setSecondary(p => Object.assign({}, p, {zipUrl: null}))
-                            } 
-                                }>
-                            <a href={secondary.zipUrl} download={`${state.data.name}.zip`}> Download Link For Selected Samples In Pack: {state.data.name} </a>
-                        </Alert>                        )
+                                setSecondary(p => Object.assign({}, p, { zipUrl: null }))
+                            }
+                            }>
+                                <a href={secondary.zipUrl} download={`${state.data.name}.zip`}> Download Link For Selected Samples In Pack: {state.data.name} </a>
+                            </Alert>)
                     }
                     {
                         !!secondary.url && (
-                            <Waveform style={{position: "fixed", zIndex: 100, }} previewName={secondary.previewName} handleClose={handleClose} show={!!secondary.preview} url={secondary.url} />
+                            <Waveform style={{ position: "fixed", zIndex: 100, }} previewName={secondary.previewName} handleClose={handleClose} show={!!secondary.preview} url={secondary.url} />
                         )
                     }
                     {
                         !!secondary.downloadUrl && (
-                            <Alert variant="light" className="m-2 p-4" dismissible show={secondary.downloadUrl} onClose={() => setSecondary(p => Object.assign({}, p, {downloadUrl: ''}))} >
+                            <Alert variant="light" className="m-2 p-4" dismissible show={secondary.downloadUrl} onClose={() => setSecondary(p => Object.assign({}, p, { downloadUrl: '' }))} >
                                 <a href={secondary.downloadUrl}> Download Link For: {secondary.downloadUrlName} </a>
                             </Alert>
                         )
@@ -617,9 +627,9 @@ export const EditPack = (props) => {
                             handleDownload={handleDownload} />
                     </div>
 
-                 
 
-                    
+
+
 
                     <Rename show={modal.rename} selected={state.selected} myHandleSubmit={renameSelected} onHide={() => setModal(p => Object.assign({}, p, { rename: false }))} />
                     <Tag show={modal.tag} selected={state.selected} myHandleSubmit={tagSelected} onHide={() => setModal(p => Object.assign({}, p, { tag: false }))} />

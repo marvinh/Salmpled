@@ -11,13 +11,18 @@ namespace salmpledv2_backend.Services {
 
         Task<ServiceResponse<List<PeriodDTO>>> History(PackSlugDTO dto);
 
-        Task<ServiceResponse<List<DateTime>>> HistoryOptions(PackSlugDTO dto);
+        Task<object> HistoryOptions(PackSlugDTO dto);
 
-        Task<ServiceResponse<CompareDTO>> Compare(PackSlugDTO dto);
+        Task<object> Compare(PackSlugDTO dto);
 
         Task<ServiceResponse<List<GetPackDTO>>> YourSamplePacks();
 
-         Task<ServiceResponse<List<GetPackDTO>>> CollabPacks();
+        Task<ServiceResponse<List<GetPackDTO>>> CollabPacks();
+
+        Task<object> Search(KeywordDTO keywordDTO);
+
+        Task<object> SearchResults(SearchResultsDTO dto);
+
 
     }
 }

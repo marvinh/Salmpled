@@ -6,7 +6,14 @@ using salmpledv2_backend.Services;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+
 var builder = WebApplication.CreateBuilder(args);
+
+
+
+if(builder.Configuration.GetConnectionString("SalmpledDatabase") == "") {
+    builder.Configuration.AddJsonFile("appsettings-dev.json", true, true);
+}
 
 // Add services to the container.
 
@@ -25,6 +32,8 @@ builder.Services.AddCors(options =>
 
 
 var domain = $"https://{builder.Configuration["Auth0:Domain"]}/";
+Console.WriteLine(domain);
+Console.WriteLine(builder.Configuration.GetConnectionString("SalmpledDatabase"));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -78,7 +87,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 app.UseCors("AllowEverything");
 
@@ -87,5 +96,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapGet("/", () =>
+{
+    return "All Good!";
+});
+
+app.MapGet("/test", () => {
+    return "test if ecr will update fargate task";
+});
 
 app.Run();

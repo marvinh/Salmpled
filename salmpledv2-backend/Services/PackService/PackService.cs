@@ -5,7 +5,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using Slugify;
+using System.Linq;
 using AutoMapper;
+
+
+
 namespace salmpledv2_backend.Services
 {
     public class PackService : IPackService
@@ -139,61 +143,234 @@ namespace salmpledv2_backend.Services
 
             return res;
         }
-        public async Task<ServiceResponse<List<DateTime>>> HistoryOptions(PackSlugDTO dto)
+        public async Task<object> Search(KeywordDTO keywordDTO)
         {
-            var res = new ServiceResponse<List<DateTime>>();
+
+            try
+            {
+
+                // var listGenre = await _context.Packs
+                // .Include(p => p.PackGenres)
+                // .ThenInclude(pg => pg.Genre)
+                // .Where(p => p.PackGenres.Any(g => g.Genre.Name.Contains(keywordDTO.Keyword))).Select(
+                //     new {
+                //         Pack = _mapper.Map<GetPackDTO>(p),
+                //         GenreName = p.PackGenres.Any(g => g.Genre.Name),
+
+                //     }
+                // ).ToListAsync();
+
+                var listGenre = await _context.Genres
+                .Include(p => p.PackGenres)
+                .ThenInclude(p => p.Pack)
+                .Where(p => p.Name == keywordDTO.Keyword)
+                .Select(p =>
+                    new
+                    {
+                        GenreName = p.Name,
+                        PackCount = p.PackGenres.Count(),
+                        PackIds = p.PackGenres.Select(p => p.Pack.Id)
+                    }
+                )
+                .ToListAsync();
+
+                var listSamples = await _context.Tags
+                .Include(t => t.SampleTags)
+                .ThenInclude(t => t.Sample)
+                .Where(t => t.Name == keywordDTO.Keyword)
+                .Select(t =>
+                    new
+                    {
+                        TagName = t.Name,
+                        SampleCount = t.SampleTags.Count(),
+                        SampleIds = t.SampleTags.Select(s => s.Sample.Id)
+                    }
+                ).ToListAsync();
+
+                var samples = await _context.Samples.Where(s => s.Name.Contains(keywordDTO.Keyword))
+                .Select(s =>
+                    new
+                    {
+                        SampleName = s.Name,
+                        SampleId = s.Id,
+                    }
+                )
+                .ToListAsync();
+
+                var sampleCount = new
+                {
+                    SampleCount = samples.Count(),
+                    Samples = samples,
+                };
+
+                var packs = await _context.Packs.Where(p => p.Name.Contains(keywordDTO.Keyword))
+                .Select(p => new
+                {
+                    PackName = p.Name,
+                    PackId = p.Id,
+                })
+                .ToListAsync();
+
+                var packCount = new
+                {
+                    PackCount = packs.Count(),
+                    Packs = packs,
+                };
+
+
+
+                // var listTag = await _context.Tags
+                // .Where(t => t.Name.Contains(keywordDTO.Keyword))
+                // .Include(t => t.SampleTags)?.ThenInclude(st => st.Samples).ToListAsync();
+
+                // var altGenre = await _context.Packs.
+                // Include(g => g.PackGenres).ThenInclude(pg => pg.Pack)
+                // .Where(g => g.PackGenres.Any(pg => pg))
+
+
+                return new
+                {
+                    result = new
+                    {
+                        Genres = listGenre,
+                        Tags = listSamples,
+                        Samples = sampleCount,
+                        Packs = packCount,
+                    },
+                    err = "",
+                };
+
+
+                // await _context.Packs
+                // .Include(pack => pack.PackGenres)
+                // .ThenInclude(g => g.Genre.Where(g => ))
+
+
+            }
+            catch (Exception e)
+            {
+                var res = new
+                {
+                    result = new List<GetSampleDTO>(),
+                    err = e.Message
+                };
+                return res;
+            }
+
+
+        }
+        public async Task<object> HistoryOptions(PackSlugDTO dto)
+        {
+
 
             try
             {
 
                 User user = await _context.Users.Where(u => u.Username == dto.Username).FirstOrDefaultAsync();
-                List<DateTime> options = _context.Packs.TemporalAll()
+                var options = await _context.Packs.TemporalAll()
                 .Where(p => p.Slug == dto.Slug && p.UserId == user.Id)
-                .OrderBy(p => EF.Property<DateTime>(p, "PeriodEnd"))
-                .Select(p => (EF.Property<DateTime>(p, "PeriodEnd"))).ToList();
-                res.Result = options;
+                .OrderByDescending(p => EF.Property<DateTime>(p, "PeriodStart"))
+                .Select(p =>
+                new
+                {
+                    Date = (EF.Property<DateTime>(p, "PeriodStart")),
+                    UpdatedBy = p.UpdatedBy,
+                }
+                ).ToListAsync();
+
+                return new
+                {
+                    Result = options,
+                    Err = "",
+                };
 
             }
             catch (Exception e)
             {
-                res.Err = e.Message;
+                return new
+                {
+                    Result = "",
+                    Err = e.Message,
+                };
             }
-            return res;
+
         }
 
-        public async Task<ServiceResponse<CompareDTO>> Compare(PackSlugDTO dto) {
-            var res = new ServiceResponse<CompareDTO>();
-            try{
-                var compareTo = await _context.Packs.TemporalAsOf(dto.On)
-                .Where(p => p.Slug == dto.Slug && p.User.Username == dto.Username)
-                .Include(p => p.PackGenres).ThenInclude(p => p.Genre)
-                .Include(s => s.Samples.OrderBy(s => s.CreatedDate)).ThenInclude(s => s.SampleTags).ThenInclude(s => s.Tag).SingleAsync();
+        public async Task<object> Compare(PackSlugDTO dto)
+        {
 
-                var current =  await _context.Packs
-                .Where(p => p.Slug == dto.Slug && p.User.Username == dto.Username)
-                .Include(p => p.PackGenres).ThenInclude(p => p.Genre)
-                .Include(s => s.Samples.OrderBy(s => s.CreatedDate)).ThenInclude(s => s.SampleTags).ThenInclude(s => s.Tag).SingleAsync();
+            try
+            {
+                var pack = await _context.Packs.Where(p => p.Slug == dto.Slug && p.User.Username == dto.Username).SingleAsync();
 
-                res.Result = new CompareDTO{Current = _mapper.Map<GetPackDTO>(current), Compare =_mapper.Map<GetPackDTO>(compareTo)};
-            } catch(Exception e) {
-                res.Err = e.Message;
+
+
+                var asOf = await _context.Samples.TemporalAsOf(dto.On)
+                .Where(s => s.PackId == pack.Id)
+                .Include(s => s.SampleTags).ThenInclude(s => s.Tag)
+                .OrderBy(s => s.CreatedDate)
+                .IgnoreQueryFilters()
+                .ToListAsync();
+
+                var prev = await _context.Samples.TemporalAsOf(dto.On.AddSeconds(-1))
+                .Where(s => s.PackId == pack.Id)
+                .Include(s => s.SampleTags).ThenInclude(s => s.Tag)
+                .OrderBy(s => s.CreatedDate)
+                .IgnoreQueryFilters()
+                .ToListAsync();
+
+                var updatedAsOf = asOf.FindAll(d => d.DeletedBy == null);
+                var updatedPrev = prev.FindAll(d => d.DeletedBy == null);
+
+                var deletedAsOf = asOf.FindAll(d => d.DeletedBy != null);
+                var deletedPrev = prev.FindAll(d => d.DeletedBy != null);
+
+
+                return new
+                {
+                    Result = new
+                    {
+                        Deleted = new
+                        {
+                            asOf = _mapper.Map<List<GetSampleDTO>>(deletedAsOf),
+                            prev = _mapper.Map<List<GetSampleDTO>>(deletedPrev)
+                        },
+                        Updated = new
+                        {
+                            asOf = _mapper.Map<List<GetSampleDTO>>(updatedAsOf),
+                            prev = _mapper.Map<List<GetSampleDTO>>(updatedPrev),
+                        }
+                    },
+                    Err = "",
+                };
+
+
+            }
+            catch (Exception e)
+            {
+
+                return new
+                {
+                    Result = "",
+                    Err = e.Message,
+                };
 
             }
 
-            return res;
+
         }
         public async Task<ServiceResponse<List<PeriodDTO>>> History(PackSlugDTO dto)
         {
             var res = new ServiceResponse<List<PeriodDTO>>();
             try
             {
-                var packSnapshots = _context.Packs
+                var packSnapshots = await _context.Packs
 
                 .TemporalAll()
                 // .Include(s => s.PackGenres).ThenInclude(s => s.Genre)
                 .Where(p => p.Slug == dto.Slug)
                 // .TemporalAll()
-                .OrderBy(p => EF.Property<DateTime>(p, "PeriodEnd"))
+                .OrderBy(p => EF.Property<DateTime>(p, "PeriodStart"))
 
                 // .Where(p => p.Pack.Slug == dto.Slug && p.Pack.User.Username == dto.Username)
                 .Select(p =>
@@ -204,7 +381,7 @@ namespace salmpledv2_backend.Services
                        PeriodEnd = EF.Property<DateTime>(p, "PeriodEnd")
                    }
                 )
-                .ToList();
+                .ToListAsync();
 
                 List<PeriodDTO> list = packSnapshots.Select(ele =>
                     new PeriodDTO
@@ -225,12 +402,14 @@ namespace salmpledv2_backend.Services
             return res;
         }
 
-        public async Task<ServiceResponse<List<GetPackDTO>>> YourSamplePacks() {
+        public async Task<ServiceResponse<List<GetPackDTO>>> YourSamplePacks()
+        {
 
             var res = new ServiceResponse<List<GetPackDTO>>();
             string? SubId = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             User? User = await _context.Users.FirstOrDefaultAsync(u => u.SubId == SubId);
-            try{
+            try
+            {
                 var pack = await _context.Packs
                 .Where(p => p.UserId == User.Id)
                 .OrderByDescending(p => p.UpdatedDate)
@@ -240,38 +419,118 @@ namespace salmpledv2_backend.Services
                 .ToListAsync();
 
                 res.Result = _mapper.Map<List<GetPackDTO>>(pack);
-            }catch(Exception e){
+            }
+            catch (Exception e)
+            {
                 res.Err = e.Message;
             }
 
             return res;
         }
 
-         public async Task<ServiceResponse<List<GetPackDTO>>> CollabPacks() {
+        public async Task<ServiceResponse<List<GetPackDTO>>> CollabPacks()
+        {
 
             var res = new ServiceResponse<List<GetPackDTO>>();
             string? SubId = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             User? User = await _context.Users.FirstOrDefaultAsync(u => u.SubId == SubId);
-            try{
-                
+            try
+            {
+
                 var groups = await _context.UserGroups.Where(u => u.UserId == User.Id).Include(s => s.Group).Select(g => g.GroupId).ToListAsync();
-                
+
                 var packs = await _context.Packs.Where(s => groups.Contains(s.GroupId ?? default)).Include(s => s.User).OrderByDescending(p => p.UpdatedDate).ToListAsync();
 
                 res.Result = _mapper.Map<List<GetPackDTO>>(packs);
-            }catch(Exception e){
+            }
+            catch (Exception e)
+            {
                 res.Err = e.Message;
             }
 
             return res;
         }
 
-    
+        public async Task<object> SearchResults(SearchResultsDTO dto)
+        {
+
+            try
+            {
+
+                switch (dto.entity)
+                {
+                    case "genre":
+                        var genre = await _context.Packs.Include(s => s.PackGenres)
+                        .ThenInclude(s => s.Genre)
+                        .Where( s => s.PackGenres.Any(t => t.Genre.Name == dto.keyword))
+                        .ToListAsync();
+                        return new
+                        {
+                            Result = _mapper.Map<List<GetPackDTO>>(genre),
+                            Err = "",
+                        };
+                       
+                    case "tag":
+                        var tag = await _context.Samples.Include(s => s.SampleTags)
+                        .ThenInclude(s => s.Tag)
+                        .Where( s => s.SampleTags.Any(t => t.Tag.Name == dto.keyword))
+                        .ToListAsync();
+                        
+                        return new
+                        {
+                            Result = _mapper.Map<List<GetSampleDTO>>(tag),
+                            Err = "",
+                        };
+                       
+                    case "sample":
+                        var sample = await _context.Samples
+                        .Include(s => s.SampleTags)
+                        .ThenInclude(s => s.Tag)
+                        .Where(s => s.Name.Contains(dto.keyword))
+                        .ToListAsync();
+                        return new {
+                            Result = _mapper.Map<List<GetSampleDTO>>(sample),
+                            Err = "",
+                        };
+                        
+                    case "pack":
+                        var pack = await _context.Packs
+                        .Where(p => p.Name.Contains(dto.keyword))
+                        .ToListAsync();
+                        return new {
+                            Result = _mapper.Map<List<GetPackDTO>>(pack),
+                            Err = "",
+                        };
+                       
+                    default:
+                        return new {
+                            Result = "",
+                            Err = "",
+                        };
+                        
+                }
+
+               
+
+            }
+            catch (Exception e)
+            {
+                return new
+                {
+                    Result = "",
+                    Err = e.Message
+                };
+                
+            }
+
+        }
 
 
-}
 
-   
+
+    }
+
+
 
 
 

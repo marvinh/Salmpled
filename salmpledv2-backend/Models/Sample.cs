@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-
+using Microsoft.EntityFrameworkCore;
 namespace salmpledv2_backend.Models
 {
     public class Sample : BaseEntity
@@ -14,7 +14,8 @@ namespace salmpledv2_backend.Models
         public string UKey { get; set; }
         public string CKey { get; set; }
         public List<SampleTag> SampleTags { get; set; }
-
+        [Precision(18, 2)]
+        public decimal Tempo { get; set; }
         public string MimeType {get;set;}
     }
 }

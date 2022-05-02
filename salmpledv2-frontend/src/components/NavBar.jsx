@@ -41,6 +41,14 @@ const NavBar = () => {
                 Home
               </NavLink>
             </Nav.Item>
+            <Nav.Item>
+              <NavLink
+                className="nav-link"
+                to="/search"
+              >
+                Search
+              </NavLink>
+            </Nav.Item>
             {
               isAuthenticated && (
                 <>

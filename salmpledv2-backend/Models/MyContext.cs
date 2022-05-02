@@ -38,6 +38,7 @@ namespace salmpledv2_backend.Models
                 }
                 else if (entity.State == EntityState.Deleted)
                 {
+                    entity.State = EntityState.Modified;
                     ((BaseEntity)entity.Entity).DeletedDate = DateTime.UtcNow;
                     ((BaseEntity)entity.Entity).DeletedBy = _username;
                 }
@@ -52,38 +53,6 @@ namespace salmpledv2_backend.Models
         }
 
        
-
-
-        // private void AddTimestamps()
-        // {
-        //     var entities = ChangeTracker.Entries().Where(x => x.Entity is BaseEntity && (x.State == EntityState.Added || x.State == EntityState.Modified));
-
-        //     string? SubId = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        //     User? User = this.Users.FirstOrDefault(u => u.SubId == SubId);
-
-        //     var currentUsername = User != null && !string.IsNullOrEmpty(User.Username) ? User.Username : "Anonymous";
-
-        //     foreach (var entity in entities)
-        //     {
-        //         if (entity.State == EntityState.Added)
-        //         {
-        //             ((BaseEntity)entity.Entity).CreatedDate = DateTime.UtcNow;
-        //             ((BaseEntity)entity.Entity).CreatedBy = currentUsername;
-        //         }
-        //         else if (entity.State == EntityState.Deleted)
-        //         {
-        //             ((BaseEntity)entity.Entity).DeletedDate = DateTime.UtcNow;
-        //             ((BaseEntity)entity.Entity).DeletedBy = currentUsername;
-        //         }
-        //         else
-        //         {
-        //             ((BaseEntity)entity.Entity).UpdatedDate = DateTime.UtcNow;
-        //             ((BaseEntity)entity.Entity).UpdatedBy = currentUsername;
-        //         }
-        //     }
-
-
-        // }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -108,8 +77,10 @@ namespace salmpledv2_backend.Models
 
             modelBuilder
             .Entity<Sample>()
-                .ToTable("Samples", b => b.IsTemporal())
-                .HasIndex(p => new { p.Name, p.PackId }).IsUnique(true);
+                .ToTable("Samples", b => b.IsTemporal());
+
+
+            modelBuilder.Entity<Sample>().HasQueryFilter(m => EF.Property<string>(m, "DeletedBy") == null);  
 
             modelBuilder
             .Entity<SampleTag>()

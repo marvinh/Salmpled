@@ -24,6 +24,58 @@ namespace salmpledv2_backend.Services
         }
 
 
+        public async Task<object> UpdateTempos(TempoListDTO dto) {
+            try {
+
+                List<string> mp3Names = dto.list.Select(d => d.CKey).ToList<string>();
+                var samples = await 
+                _context.Samples
+                .TemporalAll()
+                .IgnoreQueryFilters()
+                .Where(s => mp3Names.Contains(s.CKey))
+                .ToListAsync();
+
+                
+                foreach(var sample in samples) {
+                    sample.Tempo = dto.list.Find(d => d.CKey == sample.CKey).Tempo;
+                    sample.UpdatedBy = "Feature Extractor";
+                    Console.WriteLine(sample.Tempo);
+
+                }
+
+                //await _context.SaveChangesAsync();
+
+                samples = await 
+                _context.Samples
+                .IgnoreQueryFilters()
+                .Where(s => mp3Names.Contains(s.CKey))
+                .ToListAsync();
+
+                
+                foreach(var sample in samples) {
+                    sample.Tempo = dto.list.Find(d => d.CKey == sample.CKey).Tempo;
+                    sample.UpdatedBy = "Feature Extractor";
+                    Console.WriteLine(sample.UpdatedBy);
+                    Console.WriteLine(sample.Tempo);
+
+                }
+
+                await _context.SaveChangesAsync();
+
+                return new {
+                    Result = _mapper.Map<List<GetSampleDTO>>(samples),
+                    Err = "",
+                };
+
+            }catch (Exception e){
+
+                return new {
+                    Result = "",
+                    Err = e.Message,
+                };
+
+            }
+        }
         public async Task<ServiceResponse<List<GetSampleDTO>>> RemoveSelected(GenericListDTO list)
         {
             ServiceResponse<List<GetSampleDTO>> res = new ServiceResponse<List<GetSampleDTO>>();
@@ -31,23 +83,18 @@ namespace salmpledv2_backend.Services
             try
             {
 
-                var s = await _context.Samples.Where(s => list.Ids.Contains(s.Id)).ToListAsync();
-                foreach (var samp in s)
-                {
-                    var claimsPrincipal = _httpContextAccessor.HttpContext?.User;
+                var claimsPrincipal = _httpContextAccessor.HttpContext?.User;
 
                     // Get the username claim from the claims principal - if the user is not authenticated the claim will be null
-                    var _username = claimsPrincipal?.Claims?.SingleOrDefault(c => c.Type == "https://myapp.example.com/username")?.Value ?? "Anon";
+                var _username = claimsPrincipal?.Claims?.SingleOrDefault(c => c.Type == "https://myapp.example.com/username")?.Value ?? "Anon";
 
-                    samp.DeletedBy = _username;
-                    samp.DeletedDate = DateTime.UtcNow;
 
-                }
-                await _context.SaveChangesAsync();
+                var s = await _context.Samples.Where(s => list.Ids.Contains(s.Id)).ToListAsync();
 
+                _context.Samples.RemoveRange(s);
                 Pack p = await _context.Packs.Where(p => p.Id == s[0].PackId).SingleAsync();
                 p.UpdatedDate = DateTime.UtcNow;
-                _context.Samples.RemoveRange(s);
+                p.UpdatedBy = _username;
                 await _context.SaveChangesAsync();
                 res.Result = _mapper.Map<List<GetSampleDTO>>(s);
 
@@ -123,40 +170,36 @@ namespace salmpledv2_backend.Services
         {
 
             var res = new ServiceResponse<List<GetSampleDTO>>();
-            List<Sample> updateList = new List<Sample>();
             try
             {
-                foreach (var sample in list.list)
-                {
-                    var dig = await _context.Samples.Where(s => s.Name == sample.Name && s.PackId == sample.PackId).CountAsync();
-                    Sample s;
-                    if (dig > 0)
-                    {
+                
+                List<RenameSampleDTO> renameList = list.list;
+                List<Guid> ids = renameList.Select(r => r.Id).ToList<Guid>();
 
-                        var un = sample.Id;
-                        var apnd = un.ToString().Substring(0, 8);
-                        s = await _context.Samples.Where(es => es.Id == sample.Id).FirstOrDefaultAsync();
-                        s.Name = $"{apnd}_{sample.Name}";
-                        await _context.SaveChangesAsync();
-                        updateList.Add(s);
-                    }
-                    else
-                    {
+                List<Sample> samplelist = await _context.Samples
+                .Where(st => ids.Contains(st.Id))
+                .ToListAsync();
 
-                        s = await _context.Samples.Where(es => es.Id == sample.Id).FirstOrDefaultAsync();
-                        s.Name = sample.Name;
-                        await _context.SaveChangesAsync();
-                        updateList.Add(s);
-                    }
-
+               
+                foreach(var s in samplelist) {
+                    s.Name = renameList.Find(p => p.Id == s.Id).Name;
                 }
+
+                
+
+                var claimsPrincipal = _httpContextAccessor.HttpContext?.User;
+
+                    // Get the username claim from the claims principal - if the user is not authenticated the claim will be null
+                var _username = claimsPrincipal?.Claims?.SingleOrDefault(c => c.Type == "https://myapp.example.com/username")?.Value ?? "Anon";
+
 
                 Pack p = await _context.Packs.Where(p => p.Id == list.list[0].PackId).FirstOrDefaultAsync();
                 p.UpdatedDate = DateTime.UtcNow;
+                p.UpdatedBy = _username;
 
                 await _context.SaveChangesAsync();
 
-                res.Result = _mapper.Map<List<GetSampleDTO>>(updateList);
+                res.Result = _mapper.Map<List<GetSampleDTO>>(samplelist);
             }
             catch (Exception e)
             {
@@ -223,10 +266,62 @@ namespace salmpledv2_backend.Services
                 await _context.SampleTags.AddRangeAsync(sampleTags);
 
                 Pack p = await _context.Packs.Where(p => p.Id == arr[0].PackId).FirstOrDefaultAsync();
+
+                var claimsPrincipal = _httpContextAccessor.HttpContext?.User;
+
+                    // Get the username claim from the claims principal - if the user is not authenticated the claim will be null
+                var _username = claimsPrincipal?.Claims?.SingleOrDefault(c => c.Type == "https://myapp.example.com/username")?.Value ?? "Anon";
+
+
                 p.UpdatedDate = DateTime.UtcNow;
+
+                p.UpdatedBy = _username;
+
                 await _context.SaveChangesAsync();
                 res.Result = _mapper.Map<List<GetSampleDTO>>(arr);
 
+            }
+            catch (Exception e)
+            {
+                res.Err = e.Message;
+            }
+            return res;
+        }
+
+        public async Task<ServiceResponse<List<GetSampleDTO>>> AddBulkSamples(AddSampleListDTO list) {
+            ServiceResponse<List<GetSampleDTO>> res = new ServiceResponse<List<GetSampleDTO>>();
+
+
+            List<AddSampleDTO> newSamples = list.samples;
+
+            List<Sample> createList = new List<Sample>(); 
+            try
+            {
+                
+
+                foreach(var sample in newSamples) {
+                    createList.Add (new Sample
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = sample.Name,
+                        Region = sample.Region,
+                        PackId = sample.PackId,
+                        Bucket = sample.Bucket,
+                        CKey = sample.CKey,
+                        UKey = sample.UKey,
+                        MimeType = sample.MimeType,
+                    });
+                }
+
+
+                await _context.Samples.AddRangeAsync(createList);
+                Pack p = await _context.Packs.Where(p => p.Id == newSamples[0].PackId).FirstOrDefaultAsync();
+                var claimsPrincipal = _httpContextAccessor.HttpContext?.User;
+                var _username = claimsPrincipal?.Claims?.SingleOrDefault(c => c.Type == "https://myapp.example.com/username")?.Value ?? "Anon";
+                p.UpdatedDate = DateTime.UtcNow;
+                p.UpdatedBy = _username;
+                await _context.SaveChangesAsync();
+                res.Result = _mapper.Map<List<GetSampleDTO>>(createList);
             }
             catch (Exception e)
             {

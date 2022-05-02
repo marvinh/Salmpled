@@ -25,6 +25,14 @@ public class SampleController : ControllerBase
         return Ok(await _SampleService.AddSample(sample));
     }
 
+    [HttpPost("AddBulkSamples")]
+    [Authorize]
+    public async Task<IActionResult> AddBulkSamples([FromBody] AddSampleListDTO sample)
+    {
+        
+        return Ok(await _SampleService.AddBulkSamples(sample));
+    }
+
     [HttpPost("RenameSamples")]
     [Authorize]
     public async Task<IActionResult> RenameSamples([FromBody] RenameSampleListDTO list)
@@ -44,6 +52,11 @@ public class SampleController : ControllerBase
     [Authorize]
     public async Task<IActionResult> RemoveSelected([FromBody] GenericListDTO list) {
         return Ok(await _SampleService.RemoveSelected(list));
+    }
+
+    [HttpPost("UpdateTempos")]
+    public async Task<IActionResult> UpdateTempos([FromBody] TempoListDTO dto) {
+        return Ok(await _SampleService.UpdateTempos(dto));
     }
 
     
